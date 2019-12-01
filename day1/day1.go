@@ -45,6 +45,7 @@ func main() {
 	inputs := parseInput(string(fileContents))
 	solution := solve(inputs)
 	solution2 := solvePart2(inputs)
+	fmt.Println("Day 1")
 	fmt.Println("Part 1: ", solution)
 	fmt.Println("Part 2: ", solution2)
 }

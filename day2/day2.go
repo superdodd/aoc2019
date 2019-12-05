@@ -19,6 +19,26 @@ func parseInput(fileContents string) []int {
 	return ret
 }
 
+func runProgram(input []int) error {
+	pc := 0
+loop:
+	for {
+		switch input[pc] {
+		case 1: // Add
+			input[input[pc+3]] = input[input[pc+1]] + input[input[pc+2]]
+			pc += 4
+		case 2: // Multiply
+			input[input[pc+3]] = input[input[pc+1]] * input[input[pc+2]]
+			pc += 4
+		case 99: // Terminate
+			break loop
+		default: // Error
+			return fmt.Errorf("unexpected opcode at pc=%d: %d", pc, input[pc])
+		}
+	}
+	return nil
+}
+
 func solvePart1(input []int) int {
 	// First, modify the input
 	input[1] = 12
@@ -37,30 +57,11 @@ func solvePart2(input []int) int {
 			testInput[2] = verb
 			err := runProgram(testInput)
 			if testInput[0] == 19690720 && err == nil {
-				return 100 * noun + verb
+				return 100*noun + verb
 			}
 		}
 	}
 	return -1
-}
-
-func runProgram(input []int) error {
-	pc := 0
-	loop: for {
-		switch input[pc] {
-		case 1: // Add
-			input[input[pc+3]] = input[input[pc+1]] + input[input[pc+2]]
-			pc += 4
-		case 2: // Multiply
-			input[input[pc+3]] = input[input[pc+1]] * input[input[pc+2]]
-			pc += 4
-		case 99: // Terminate
-			break loop
-		default: // Error
-			return fmt.Errorf("unexpected opcode at pc=%d: %d", pc, input[pc])
-		}
-	}
-	return nil
 }
 
 func main() {

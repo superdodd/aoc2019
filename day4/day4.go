@@ -67,6 +67,11 @@ func solvePart2() int {
 }
 
 func main() {
+	/*
+		Day 4:
+		Part 1: 921
+		Part 2: 603
+	*/
 	fmt.Println("Day 4:")
 	fmt.Println("Part 1: ", solvePart1())
 	fmt.Println("Part 2: ", solvePart2())

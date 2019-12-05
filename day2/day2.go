@@ -2,61 +2,33 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strconv"
-	"strings"
+	"github.com/superdodd/aoc2019/common/intcode"
 )
 
-func parseInput(fileContents string) []int {
-	var ret []int
-	for _, i := range strings.Split(fileContents, ",") {
-		ival, err := strconv.Atoi(i)
-		if err != nil {
-			panic(err)
-		}
-		ret = append(ret, ival)
-	}
-	return ret
+var day2_program = []int{
+	1, 0, 0, 3, 1, 1, 2, 3, 1, 3, 4, 3, 1, 5, 0, 3, 2, 1, 10, 19, 1, 6, 19, 23, 2, 23, 6, 27, 2, 6, 27, 31, 2, 13, 31,
+	35, 1, 10, 35, 39, 2, 39, 13, 43, 1, 43, 13, 47, 1, 6, 47, 51, 1, 10, 51, 55, 2, 55, 6, 59, 1, 5, 59, 63, 2, 9, 63,
+	67, 1, 6, 67, 71, 2, 9, 71, 75, 1, 6, 75, 79, 2, 79, 13, 83, 1, 83, 10, 87, 1, 13, 87, 91, 1, 91, 10, 95, 2, 9, 95,
+	99, 1, 5, 99, 103, 2, 10, 103, 107, 1, 107, 2, 111, 1, 111, 5, 0, 99, 2, 14, 0, 0,
 }
 
-func runProgram(input []int) error {
-	pc := 0
-loop:
-	for {
-		switch input[pc] {
-		case 1: // Add
-			input[input[pc+3]] = input[input[pc+1]] + input[input[pc+2]]
-			pc += 4
-		case 2: // Multiply
-			input[input[pc+3]] = input[input[pc+1]] * input[input[pc+2]]
-			pc += 4
-		case 99: // Terminate
-			break loop
-		default: // Error
-			return fmt.Errorf("unexpected opcode at pc=%d: %d", pc, input[pc])
-		}
-	}
-	return nil
+func solvePart1(ic *intcode.Intcode) int {
+	// First, modify the input program
+	ic.Reset()
+	ic.Program[1] = 12
+	ic.Program[2] = 2
+	ic.MustRun()
+	return ic.Program[0]
 }
 
-func solvePart1(input []int) int {
-	// First, modify the input
-	input[1] = 12
-	input[2] = 2
-	if err := runProgram(input); err != nil {
-		panic(err)
-	}
-	return input[0]
-}
-
-func solvePart2(input []int) int {
+func solvePart2(ic *intcode.Intcode) int {
 	for noun := 0; noun <= 99; noun++ {
 		for verb := 0; verb <= 99; verb++ {
-			testInput := append([]int(nil), input...)
-			testInput[1] = noun
-			testInput[2] = verb
-			err := runProgram(testInput)
-			if testInput[0] == 19690720 && err == nil {
+			ic.Reset()
+			ic.Program[1] = noun
+			ic.Program[2] = verb
+			err := ic.Run()
+			if ic.Program[0] == 19690720 && err == nil {
 				return 100*noun + verb
 			}
 		}
@@ -65,14 +37,14 @@ func solvePart2(input []int) int {
 }
 
 func main() {
-	fileContents, err := ioutil.ReadFile("src/github.com/superdodd/aoc2019/day2/day2_input.txt")
-	if err != nil {
-		panic(err)
-	}
-	inputs := parseInput(string(fileContents))
-	solution := solvePart1(append([]int(nil), inputs...))
-	solution2 := solvePart2(append([]int(nil), inputs...))
+	ic := intcode.NewIntcode(day2_program...)
+
+	/*
+		Day 2
+		Part 1:  5434663
+		Part 2:  4559
+	*/
 	fmt.Println("Day 2")
-	fmt.Println("Part 1: ", solution)
-	fmt.Println("Part 2: ", solution2)
+	fmt.Println("Part 1: ", solvePart1(ic))
+	fmt.Println("Part 2: ", solvePart2(ic))
 }

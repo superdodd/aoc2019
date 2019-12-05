@@ -146,6 +146,11 @@ func main() {
 	}
 	part1 := solvePart1(wires)
 	part2 := solvePart2(wires)
+	/*
+		Day 3
+		Part 1: 1211
+		Part 2: 101386
+	*/
 	fmt.Println("Day 3")
 	fmt.Println("Part 1: ", part1)
 	fmt.Println("Part 2: ", part2)

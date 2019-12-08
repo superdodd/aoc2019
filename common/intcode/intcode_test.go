@@ -3,7 +3,9 @@ package intcode
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"testing"
+	"time"
 )
 
 func runOpcode(instr []int, inputs ...int) (ret *Intcode, err error) {
@@ -280,4 +282,66 @@ func Test_Day5Examples(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ChannelInputOutput(t *testing.T) {
+	ic := NewIntcode(3, 0, 3, 1, 4, 1, 4, 0, 99)
+	inputChan := make(chan int)
+	outputChan := make(chan int)
+	ic.InputChan = inputChan
+	ic.OutputChan = outputChan
+	done := make(chan struct{})
+	go func() {
+		ic.MustRun()
+		close(done)
+	}()
+	inputChan <- 2
+	inputChan <- 3
+	close(inputChan)
+	o, ok := <-outputChan
+	assert.True(t, ok)
+	assert.Equal(t, 3, o)
+	o, ok = <-outputChan
+	assert.True(t, ok)
+	assert.Equal(t, 2, o)
+	timeout := time.After(1 * time.Second)
+	select {
+	case <-done:
+	case <-timeout:
+		t.Fatal("timeout!")
+	}
+}
+
+func Test_ChainedInputOutput(t *testing.T) {
+	a := make(chan int, 1)
+	b := make(chan int, 1)
+	ic1 := NewIntcode(1, 0, 1, 0, 3, 0, 1, 0, 2, 0, 4, 0, 99)
+	ic1.InputChan = a
+	ic1.OutputChan = b
+	ic2 := NewIntcode(ic1.Program...)
+	ic2.InputChan = b
+	ic2.OutputChan = a
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		ic1.MustRun()
+		wg.Done()
+	}()
+	go func() {
+		ic2.MustRun()
+		wg.Done()
+	}()
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	a <- 0
+	timeout := time.After(1 * time.Second)
+	select {
+	case <-done:
+	case <-timeout:
+		t.Fatal("timeout!")
+	}
+
 }

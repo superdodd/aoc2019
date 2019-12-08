@@ -6,34 +6,35 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
+var serialNum uint32
+
 type Intcode struct {
-	Pc              int   // The current instruction pointer
-	Program         []int // The current working memory
-	Inputs          []int // The sequence of input values for the program
-	CurrentInput    int   // The index of the next input to be consumed
-	Outputs         []int // The outputs from running the program, in order
-	originalProgram []int // The program as originally loaded
-}
-
-func NewFromFile(fileName string) *Intcode {
-	ret := &Intcode{}
-	ret.MustLoadFile(fileName)
-	return ret
-}
-
-func NewFromString(contents string) *Intcode {
-	ret := &Intcode{}
-	ret.MustLoad(contents)
-	return ret
+	Pc              int      // The current instruction pointer
+	Program         []int    // The current working memory
+	Inputs          []int    // The sequence of input values for the program
+	CurrentInput    int      // The index of the next input to be consumed
+	InputChan       chan int // Read-only channel of input values (may be nil)
+	Outputs         []int    // The outputs from running the program, in order
+	OutputChan      chan int // Write-only channel of output values (may be nil)
+	originalProgram []int    // The program as originally loaded
+	SerialNum       uint32   // A unique identifier for this instance (auto-generated)
 }
 
 func NewIntcode(mem ...int) *Intcode {
 	return &Intcode{
 		Program:         append([]int(nil), mem...),
 		originalProgram: append([]int(nil), mem...),
+		SerialNum:       atomic.AddUint32(&serialNum, 1),
 	}
+}
+
+func (ic *Intcode) Copy() *Intcode {
+	ret := NewIntcode(ic.Program...)
+	ret.Inputs = append([]int(nil), ic.Inputs...)
+	return ret
 }
 
 // Reset the program memory to the initial input.  Returns the previous memory state.
@@ -83,6 +84,22 @@ func (ic *Intcode) MustLoad(contents string) {
 	}
 }
 
+// Creates a new Intcode program with the given starting memory, whose input channel is connected to the output
+// channel of this program via a buffered channel.
+func (ic *Intcode) Chain(mem ...int) *Intcode {
+	ret := NewIntcode(mem...)
+	if ic == nil {
+		// Allow chaining from a nil pointer - just create an input channel
+		ret.InputChan = make(chan int, 1)
+	} else {
+		if ic.OutputChan == nil {
+			ic.OutputChan = make(chan int, 1)
+		}
+		ret.InputChan = ic.OutputChan
+	}
+	return ret
+}
+
 // Returns the relevant value (accounting for immediate vs position) for the given parameter number
 // for the currently active instruction.
 func (ic *Intcode) paramVal(paramNumber int) int {
@@ -99,7 +116,8 @@ func (ic *Intcode) Run() error {
 			return err
 		}
 	}
-	return nil
+	// Execute a last Step() instruction to clean up resources during halt
+	return ic.Step()
 }
 
 func (ic *Intcode) makeErr(msg string, args ...interface{}) error {
@@ -116,14 +134,27 @@ func (ic *Intcode) Step() error {
 		ic.Program[ic.Program[ic.Pc+3]] = ic.paramVal(1) * ic.paramVal(2)
 		ic.Pc += 4
 	case 3: // Input
-		if ic.CurrentInput >= len(ic.Inputs) {
-			return ic.makeErr("no more inputs")
+		var inputVal int
+		if ic.CurrentInput < len(ic.Inputs) {
+			inputVal = ic.Inputs[ic.CurrentInput]
+			ic.CurrentInput++
+		} else if ic.InputChan != nil {
+			var ok bool
+			inputVal, ok = <-ic.InputChan
+			if !ok {
+				return fmt.Errorf("not enough inputs")
+			}
+		} else {
+			return fmt.Errorf("not enough inputs")
 		}
-		ic.Program[ic.Program[ic.Pc+1]] = ic.Inputs[ic.CurrentInput]
-		ic.CurrentInput++
+		ic.Program[ic.Program[ic.Pc+1]] = inputVal
 		ic.Pc += 2
 	case 4: // Output
-		ic.Outputs = append(ic.Outputs, ic.paramVal(1))
+		outputValue := ic.paramVal(1)
+		ic.Outputs = append(ic.Outputs, outputValue)
+		if ic.OutputChan != nil {
+			ic.OutputChan <- outputValue
+		}
 		ic.Pc += 2
 	case 5: // Jump if true
 		if ic.paramVal(1) != 0 {
@@ -151,6 +182,15 @@ func (ic *Intcode) Step() error {
 			ic.Program[ic.Program[ic.Pc+3]] = 0
 		}
 		ic.Pc += 4
+	case 99: // Halt
+		if ic.OutputChan != nil {
+			close(ic.OutputChan)
+		}
+		if ic.CurrentInput < len(ic.Inputs) {
+			return fmt.Errorf("unused input value")
+		}
+		// Ignore any extra inputs on input channel; for feedback loops we will get some extra inputs that we ignore.
+		// Don't insist on input channel being closed before halting.
 	default: // Error
 		return ic.makeErr("unexpected opcode: %d", ic.Program[ic.Pc])
 	}

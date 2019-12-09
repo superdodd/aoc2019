@@ -5,7 +5,7 @@ import (
 	"github.com/superdodd/aoc2019/common/intcode"
 )
 
-var day5_program = []int{
+var day5_program = []int64{
 	3, 225, 1, 225, 6, 6, 1100, 1, 238, 225, 104, 0, 1101, 82, 10, 225, 101, 94, 44, 224, 101, -165, 224, 224, 4, 224,
 	1002, 223, 8, 223, 101, 3, 224, 224, 1, 224, 223, 223, 1102, 35, 77, 225, 1102, 28, 71, 225, 1102, 16, 36, 225, 102,
 	51, 196, 224, 101, -3468, 224, 224, 4, 224, 102, 8, 223, 223, 1001, 224, 7, 224, 1, 223, 224, 223, 1001, 48, 21,
@@ -37,9 +37,9 @@ var day5_program = []int{
 	223, 1006, 224, 674, 1001, 223, 1, 223, 4, 223, 99, 226,
 }
 
-func solvePart1() int {
+func solvePart1() int64 {
 	ic := intcode.NewIntcode(day5_program...)
-	ic.Inputs = []int{1}
+	ic.Inputs = []int64{1}
 	ic.MustRun()
 	var i int
 	var errorCount int
@@ -57,9 +57,9 @@ func solvePart1() int {
 	return ic.Outputs[len(ic.Outputs)-1]
 }
 
-func solvePart2() int {
+func solvePart2() int64 {
 	ic := intcode.NewIntcode(day5_program...)
-	ic.Inputs = []int{5}
+	ic.Inputs = []int64{5}
 	ic.MustRun()
 	if len(ic.Outputs) != 1 {
 		fmt.Println("More than expected outputs: ", ic.Outputs)

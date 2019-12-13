@@ -58,6 +58,7 @@ var day13_input = []int64{
 }
 
 const DRAW_SCREEN bool = true
+const FRAME_RATE_DELAY = time.Second / (3 * 60)
 
 func runGame(ic *intcode.Intcode) map[int64]map[int64]int64 {
 	ic.OutputChan = make(chan int64)
@@ -79,7 +80,9 @@ gameloop: // Each time around the loop, we should either read output or write in
 		select {
 		case x, ok := <-ic.OutputChan:
 			if !ok {
-				// Output channel closed - game over
+				// Output channel closed - game over.  Make one last update to the screen
+				goterm.MoveCursor(1, len(screen)+2)
+				goterm.Flush()
 				break gameloop
 			}
 			// Outputs always come in threes
@@ -111,13 +114,13 @@ gameloop: // Each time around the loop, we should either read output or write in
 				case 0: // Empty
 					goterm.Print("  ")
 				case 1: // Wall
-					goterm.Print("%%")
+					goterm.Print("::")
 				case 2: // Block
-					goterm.Print("[]")
+					goterm.Print("XX")
 				case 3: // Paddle
-					goterm.Print(goterm.Bold("--"))
+					goterm.Print(goterm.Bold("=="))
 				case 4: // Ball
-					goterm.Print(goterm.Bold("️xx"))
+					goterm.Print(goterm.Bold("️()"))
 				default:
 					goterm.Print("??")
 				}
@@ -135,7 +138,7 @@ gameloop: // Each time around the loop, we should either read output or write in
 				}
 				goterm.MoveCursor(1, len(screen)+2)
 				goterm.Flush()
-				time.Sleep(5 * time.Millisecond)
+				time.Sleep(FRAME_RATE_DELAY)
 			}
 		}
 	}

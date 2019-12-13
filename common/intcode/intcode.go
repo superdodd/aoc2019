@@ -216,9 +216,10 @@ func (ic *Intcode) Step() error {
 		ic.Pc += 2
 	case 4: // Output
 		outputValue := ic.paramVal(1)
-		ic.Outputs = append(ic.Outputs, outputValue)
 		if ic.OutputChan != nil {
 			ic.OutputChan <- outputValue
+		} else {
+			ic.Outputs = append(ic.Outputs, outputValue)
 		}
 		ic.Pc += 2
 	case 5: // Jump if true

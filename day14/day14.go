@@ -125,15 +125,43 @@ func (i *Ingredient) neededToMake(o *Ingredient) bool {
 }
 
 func SolvePart1(ingredients map[string]*Ingredient) int {
-	return int(analyzeOreRequirement(ingredients, true))
+	return analyzeOreRequirement(ingredients, 1)
 }
 
 func SolvePart2(ingredients map[string]*Ingredient) int {
-	exactOrePerFuel := analyzeOreRequirement(ingredients, false)
-	return int(1000000000000 / exactOrePerFuel)
+	// Perform a binary search to determine the maximum number of fuel able to be provided using at most 1e12 ore // Th
+	var targetOreConsumed int = 1e12
+	lowFuelGuess := 1e12 / analyzeOreRequirement(ingredients, 1)
+	highFuelGuess := lowFuelGuess * 2
+	//fmt.Printf("Initial: low=%d high=%d\n", lowFuelGuess, highFuelGuess)
+	for analyzeOreRequirement(ingredients, lowFuelGuess) > targetOreConsumed {
+		lowFuelGuess /= 2
+		//fmt.Println("Low guess too high; decreasing to ", lowFuelGuess)
+	}
+	for analyzeOreRequirement(ingredients, highFuelGuess) < targetOreConsumed {
+		highFuelGuess *= 2
+		//fmt.Println("High guess too low; increasing to ", highFuelGuess)
+	}
+	for highFuelGuess-lowFuelGuess > 1 {
+		midpoint := (lowFuelGuess + highFuelGuess) / 2
+		requirement := analyzeOreRequirement(ingredients, midpoint)
+		//fmt.Printf("Check: %d fuel requires %d ore\n", midpoint, requirement)
+		if requirement > targetOreConsumed {
+			highFuelGuess = midpoint
+		}
+		if requirement < targetOreConsumed {
+			lowFuelGuess = midpoint
+		}
+		if requirement == targetOreConsumed {
+			//fmt.Printf("On the money: %d fuel requires %d ore\n", midpoint, requirement)
+			return midpoint
+		}
+	}
+	//fmt.Printf("Best we can do: %d fuel requires %d ore\n", lowFuelGuess, analyzeOreRequirement(ingredients, lowFuelGuess))
+	return lowFuelGuess
 }
 
-func analyzeOreRequirement(ingredients map[string]*Ingredient, wholeBatchesOnly bool) float64 {
+func analyzeOreRequirement(ingredients map[string]*Ingredient, fuelNeeded int) int {
 	// First sort in reverse dependency order.  We want to ensure that we only
 	// attempt to decompose an ingredient into its components once.
 	// Not sure how efficient this sort is, but at least it's obvious.
@@ -162,11 +190,11 @@ func analyzeOreRequirement(ingredients map[string]*Ingredient, wholeBatchesOnly 
 		topoSort = append(topoSort, newSort)
 	}
 
-	outputsRequired := map[*Ingredient]float64{ingredients["FUEL"]: 1}
-	var oreRequired float64
+	outputsRequired := map[*Ingredient]int{ingredients["FUEL"]: fuelNeeded}
+	var oreRequired int
 	for len(outputsRequired) > 0 {
 		var out *Ingredient
-		var requiredCount float64
+		var requiredCount int
 		for _, i := range topoSort {
 			var ok bool
 			if requiredCount, ok = outputsRequired[i]; ok {
@@ -180,15 +208,12 @@ func analyzeOreRequirement(ingredients map[string]*Ingredient, wholeBatchesOnly 
 		}
 
 		// Decompose the needed ingredient into its recipe components and add each to the required list.
-		batchesRequired := requiredCount / float64(out.RecipeOutput)
-		if wholeBatchesOnly {
-			batchesRequired = math.Ceil(batchesRequired)
-		}
+		batchesRequired := int(math.Ceil(float64(requiredCount) / float64(out.RecipeOutput)))
 		for ingredient, count := range out.RecipeInput {
 			if ingredient.Name == "ORE" {
-				oreRequired += batchesRequired * float64(count)
+				oreRequired += batchesRequired * count
 			}
-			outputsRequired[ingredient] = outputsRequired[ingredient] + batchesRequired*float64(count)
+			outputsRequired[ingredient] = outputsRequired[ingredient] + batchesRequired*count
 		}
 	}
 	return oreRequired
